@@ -1,0 +1,137 @@
+<style>
+    .hud-panel {
+      position: fixed;
+      right: 20px;
+      top: 20px;
+      background: linear-gradient(
+        to bottom,
+        rgba(40, 40, 40, 0.92),
+        rgba(25, 25, 25, 0.92)
+      );
+      border: 3px solid rgba(180, 180, 180, 0.4);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5),
+        inset 0 0 20px rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 12px;
+      width: 200px;
+      backdrop-filter: blur(4px);
+    }
+  
+    .panel-row {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+      padding: 6px 8px;
+      background: rgba(30, 30, 30, 0.6);
+      border: 1px solid rgba(200, 200, 200, 0.15);
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+  
+    .panel-row:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateX(-3px);
+    }
+  
+    .panel-name {
+      flex: 1;
+      color: #ffffff;
+      font-family: 'Trebuchet MS', 'Arial', sans-serif;
+      font-size: 15px;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      letter-spacing: 0.5px;
+    }
+  
+    .panel-value {
+      font-weight: bold;
+      font-size: 16px;
+      color: #00ffaa;
+      text-shadow: 0 0 8px rgba(0, 255, 170, 0.4), 1px 1px 2px rgba(0, 0, 0, 0.8);
+      font-family: 'Georgia', serif;
+      padding: 0 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+    }
+  
+    .hud-button {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0;
+      background: linear-gradient(to bottom, #4a4a4a, #363636);
+      border: 2px solid rgba(200, 200, 200, 0.2);
+      border-radius: 6px;
+      color: #ffffff;
+      font-family: 'Trebuchet MS', 'Arial', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    }
+  
+    .hud-button:hover {
+      background: linear-gradient(to bottom, #5a5a5a, #464646);
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+  
+    .hud-button:active {
+      transform: translateY(0);
+      background: linear-gradient(to bottom, #3a3a3a, #262626);
+    }
+  
+    .reset-button {
+      border-color: rgba(255, 100, 100, 0.3);
+      background: linear-gradient(to bottom, #6a3a3a, #4a2a2a);
+    }
+  
+    .reset-button:hover {
+      background: linear-gradient(to bottom, #7a4a4a, #5a3a3a);
+    }
+  
+    .spawn-button {
+      border-color: rgba(100, 255, 100, 0.3);
+      background: linear-gradient(to bottom, #3a6a3a, #2a4a2a);
+    }
+  
+    .spawn-button:hover {
+      background: linear-gradient(to bottom, #b4fab4, #3a5a3a);
+    }
+  </style>
+  
+  <div class="hud-panel">
+    <div class="panel-row">
+      <div class="panel-name">Time Played</div>
+      <div class="panel-value time-played">0:00</div>
+    </div>
+    <div class="panel-row">
+      <div class="panel-name">Deaths</div>
+      <div class="panel-value player-deaths">0</div>
+    </div>
+    <button class="hud-button reset-button">Reset</button>
+    <button class="hud-button spawn-button">Go to Spawn</button>
+  </div>
+  
+  <script>
+    // Placeholder for game logic
+    hytopia.onData((data) => {
+      if (data.type === 'time-played') {
+        const minutes = Math.floor(data.duration / 60);
+        const seconds = data.duration % 60;
+        const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        document.querySelector('.time-played').textContent = formattedTime;
+      }
+      if (data.type === 'player-deaths') {
+        document.querySelector('.player-deaths').textContent = data.deaths;
+      }
+    });
+  
+    // Button click handlers (to be implemented)
+    document.querySelector('.reset-button').addEventListener('click', () => {
+      // Reset game logic here
+    });
+  
+    document.querySelector('.spawn-button').addEventListener('click', () => {
+      // Teleport to spawn logic here
+      hytopia.sendData({ button: 'spawn' });
+    });
+  </script>
