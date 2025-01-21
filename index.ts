@@ -8,6 +8,8 @@ import {
   type EntityEventPayload,
   EntityEventType,
   BlockType,
+  Vector3,
+  type Vector3Like,
 } from 'hytopia';
 
 import worldMap from './assets/map.json';
@@ -15,16 +17,6 @@ import GlassBridge from './scripts/glassBridge';
 
 export const PLAYER_LAVA_FALL_EVENT = 'PLAYER_LAVA_FALL_EVENT';
 export interface PlayerLavaFallEventPayload { player: PlayerEntity }
-
-/**
- * startServer is always the entry point for our game.
- * It accepts a single function where we should do any
- * setup necessary for our game. The init function is
- * passed a World instance which is the default
- * world created by the game server on startup.
- * 
- * Documentation: https://github.com/hytopiagg/sdk/blob/main/docs/server.startserver.md
- */
 
 startServer(world => {
   // world.simulation.enableDebugRendering(true);
@@ -38,51 +30,71 @@ startServer(world => {
     name: 'Faulty Platform'
   })
 
-  faultyBlock.onEntityCollision = (type: BlockType, entity: Entity) => {
-    const position = entity.position
-    position.y -= 1
-    // Remove blocks in a 3x3 grid centered on the collision position
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        // log position to remove
-        if (world.chunkLattice.getBlockId({
-          x: position.x + dx,
-          y: position.y,
-          z: position.z + dz
-        }) === faultyBlockId) {
-          world.chunkLattice.setBlock({
-            x: position.x + dx,
-            y: position.y,
-            z: position.z + dz
-          }, 0)
+
+
+  faultyBlock.onEntityCollision = (type: BlockType, entity: Entity, started: boolean, colliderHandleA: number, colliderHandleB: number) => {
+    if (started) {
+      const contactManifolds = world.simulation.getContactManifolds(colliderHandleA, colliderHandleB);
+
+      let contactPoint: Vector3Like | undefined;
+
+      contactManifolds.forEach(contactManifold => {
+        if (contactManifold.contactPoints.length > 0) {
+          contactPoint = contactManifold.contactPoints[0]
+        }
+      });
+
+      console.log(contactPoint)
+      console.log(entity.position)
+
+      // If we have a contact point, use it to determine the block position
+      // Otherwise fallback to entity position
+      let position = entity.position;
+      if (contactPoint) {
+        // The contact point is in world space, round to nearest block coordinates
+        position = {
+          x: Math.round(contactPoint.x),
+          y: Math.round(contactPoint.y),
+          z: Math.round(contactPoint.z)
+        };
+      }
+      // calculate the correct block position by using the player entity position & the contact point.
+      // const position = contactPoint || entity.position
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            // log position to remove
+            if (world.chunkLattice.getBlockId({
+              x: position.x + dx,
+              y: position.y + dy,
+              z: position.z + dz
+            }) === faultyBlockId) {
+              world.chunkLattice.setBlock({
+                x: position.x + dx,
+                y: position.y + dy,
+                z: position.z + dz
+              }, 0)
+            }
+          }
         }
       }
+
+      const onBreakAudio = new Audio({
+        uri: 'audio/sfx/glass.mp3',
+        volume: 0.3,
+        position: position,
+      })
+      onBreakAudio.play(world)
     }
-
-    const onBreakAudio = new Audio({
-      uri: 'audio/sfx/glass.mp3',
-      volume: 0.3,
-      position: position,
-    })
-    onBreakAudio.play(world)
-
   }
 
-  world.simulation.setGravity({ x: 0, y: -20, z: 0 });
+  world.simulation.setGravity({ x: 0, y: -28, z: 0 });
 
-  const spawnPosition = { x: 0, y: 15, z: 0 }
+  const spawnPosition = { x: 0, y: 17, z: 0 }
 
   const glassBridge = new GlassBridge(world, faultyBlockId, spawnPosition)
   world.setAmbientLightColor({ r: 198, g: 198, b: 198 }); // very red ambient lighting
 
-  /**
-   * Handle player joining the game. The onPlayerJoin
-   * function is called when a new player connects to
-   * the game. From here, we create a basic player
-   * entity instance which automatically handles mapping
-   * their inputs to control their in-game entity and
-   * internally uses our player entity controller.
-   */
   world.onPlayerJoin = player => {
     const playerEntity = new PlayerEntity({
       player,
@@ -137,5 +149,4 @@ startServer(world => {
     loop: true,
     volume: 0.1,
   }).play(world);
-
 });
