@@ -10,27 +10,101 @@ import {
   BlockType,
   Vector3,
   type Vector3Like,
+  World,
+  Player,
 } from 'hytopia';
 
 import worldMap from './assets/map.json';
 import GlassBridge from './scripts/glassBridge';
 
-export const PLAYER_LAVA_FALL_EVENT = 'PLAYER_LAVA_FALL_EVENT';
-export interface PlayerLavaFallEventPayload { player: PlayerEntity }
+export const PLAYER_VOID_FALL_EVENT = 'PLAYER_VOID_FALL_EVENT';
+export interface PlayerVoidFallEventPayload { player: PlayerEntity }
+
+const SPAWN = { x: 0, y: 17, z: 0 }
+const VICTORY_BLOCK_ID = 102
+const FAULTY_BLOCK_ID = 101
+
 
 startServer(world => {
   // world.simulation.enableDebugRendering(true);
 
   world.loadMap(worldMap);
+  const glassBridge = new GlassBridge(world, FAULTY_BLOCK_ID, SPAWN)
+  loadCustomBlocks(world, glassBridge)
 
-  const faultyBlockId = 101
+  world.simulation.setGravity({ x: 0, y: -28, z: 0 });
+  world.setAmbientLightColor({ r: 198, g: 198, b: 198 });
+  new Audio({
+    uri: 'audio/music/overworld.mp3',
+    loop: true,
+    volume: 0.1,
+  }).play(world);
+
+  world.onPlayerJoin = player => onPlayerJoin(world, player, glassBridge)
+  world.onPlayerLeave = player => onPlayerLeave(world, player, glassBridge)
+
+  // testing custom events, would be useful if we wanted multiple subscriptions
+  // to the same event across our codebase
+  world.eventRouter.on<EntityEventPayload.UpdatePosition>(
+    EntityEventType.UPDATE_POSITION,
+    (payload: EntityEventPayload.UpdatePosition) => {
+      if (payload.position.y < 0 && payload.entity instanceof PlayerEntity) {
+        world.eventRouter.emit<PlayerVoidFallEventPayload>(
+          PLAYER_VOID_FALL_EVENT,
+          { player: payload.entity }
+        )
+      }
+    }
+  )
+  world.eventRouter.on<PlayerVoidFallEventPayload>(
+    PLAYER_VOID_FALL_EVENT,
+    (payload: PlayerVoidFallEventPayload) => {
+      glassBridge.onPlayerFall(payload.player)
+    }
+  )
+});
+
+function onPlayerJoin(world: World, player: Player, glassBridge: GlassBridge) {
+  const playerEntity = new PlayerEntity({
+    player,
+    name: 'Player',
+    modelUri: 'models/player.gltf',
+    modelLoopedAnimations: ['idle'],
+    modelScale: 0.5,
+  });
+
+  playerEntity.spawn(world, SPAWN);
+  glassBridge.play(playerEntity.player);
+
+  // Send a nice welcome message that only the player who joined will see ;)
+  world.chatManager.sendPlayerMessage(player, 'Welcome to the game!', '00FF00');
+  world.chatManager.sendPlayerMessage(player, 'Use WASD to move around.');
+  world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
+  world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');
+  player.ui.load('ui/index.html')
+  player.input['sh'] = false;
+
+  player.ui.onData = (playerUI: PlayerUI, data: { button?: string }) => {
+    if (data.button && data.button === 'spawn') {
+      playerEntity.setPosition(SPAWN)
+    }
+    if (data.button && data.button === 'reset') {
+      glassBridge.reset(playerEntity)
+    }
+  };
+}
+
+function onPlayerLeave(world: World, player: Player, glassBridge: GlassBridge) {
+  world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
+  glassBridge.stop()
+}
+
+function loadCustomBlocks(world: World, glassBridge: GlassBridge) {
   const faultyBlock = world.blockTypeRegistry.registerGenericBlockType({
-    id: faultyBlockId,
+    id: FAULTY_BLOCK_ID,
     textureUri: 'textures/glass.png',
     name: 'Faulty Platform'
   })
-
-
 
   faultyBlock.onEntityCollision = (type: BlockType, entity: Entity, started: boolean, colliderHandleA: number, colliderHandleB: number) => {
     if (started) {
@@ -43,9 +117,6 @@ startServer(world => {
           contactPoint = contactManifold.contactPoints[0]
         }
       });
-
-      console.log(contactPoint)
-      console.log(entity.position)
 
       // If we have a contact point, use it to determine the block position
       // Otherwise fallback to entity position
@@ -68,7 +139,7 @@ startServer(world => {
               x: position.x + dx,
               y: position.y + dy,
               z: position.z + dz
-            }) === faultyBlockId) {
+            }) === FAULTY_BLOCK_ID) {
               world.chunkLattice.setBlock({
                 x: position.x + dx,
                 y: position.y + dy,
@@ -88,65 +159,26 @@ startServer(world => {
     }
   }
 
-  world.simulation.setGravity({ x: 0, y: -28, z: 0 });
+  const victoryBlock = world.blockTypeRegistry.registerGenericBlockType({
+    id: VICTORY_BLOCK_ID,
+    textureUri: 'textures/dragons_stone.png',
+    name: 'Victory Block'
+  })
 
-  const spawnPosition = { x: 0, y: 17, z: 0 }
+  for (let x = 35; x <= 39; x++) {
+    for (let z = -2; z <= 2; z++) {
+      world.chunkLattice.setBlock({ x, y: 10, z }, VICTORY_BLOCK_ID)
+    }
+  }
 
-  const glassBridge = new GlassBridge(world, faultyBlockId, spawnPosition)
-  world.setAmbientLightColor({ r: 198, g: 198, b: 198 }); // very red ambient lighting
-
-  world.onPlayerJoin = player => {
-    const playerEntity = new PlayerEntity({
-      player,
-      name: 'Player',
-      modelUri: 'models/player.gltf',
-      modelLoopedAnimations: ['idle'],
-      modelScale: 0.5,
-    });
-
-    playerEntity.spawn(world, spawnPosition);
-    glassBridge.play(playerEntity.player);
-
-    // Send a nice welcome message that only the player who joined will see ;)
-    world.chatManager.sendPlayerMessage(player, 'Welcome to the game!', '00FF00');
-    world.chatManager.sendPlayerMessage(player, 'Use WASD to move around.');
-    world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
-    world.chatManager.sendPlayerMessage(player, 'Hold shift to sprint.');
-    world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');
-    player.ui.load('ui/index.html')
-
-    player.ui.onData = (playerUI: PlayerUI, data: { button?: string }) => {
-      if (data.button && data.button === 'spawn') {
-        playerEntity.setPosition(spawnPosition)
-      }
-    };
-
-  };
-
-  world.onPlayerLeave = player => {
-    world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
-  };
-
-  world.eventRouter.on<EntityEventPayload.UpdatePosition>(
-    EntityEventType.UPDATE_POSITION,
-    (payload: EntityEventPayload.UpdatePosition) => {
-      if (payload.position.y < 0 && payload.entity instanceof PlayerEntity) {
-        world.eventRouter.emit<PlayerLavaFallEventPayload>(
-          PLAYER_LAVA_FALL_EVENT,
-          { player: payload.entity }
-        )
+  // Player wins when they collide with the victory block - TODO: make sure they land on the block
+  victoryBlock.onEntityCollision = (type: BlockType, entity: Entity, started: boolean) => {
+    if (started) {
+      if(entity instanceof PlayerEntity && glassBridge.isActive) {
+        entity.player.ui.sendData({ type: 'victory' })
+        entity.startModelLoopedAnimations(['sleep'])
+        glassBridge.stop()
       }
     }
-  )
-  world.eventRouter.on<PlayerLavaFallEventPayload>(
-    PLAYER_LAVA_FALL_EVENT,
-    (payload: PlayerLavaFallEventPayload) => {
-      glassBridge.onPlayerFall(payload.player)
-    }
-  )
-  new Audio({
-    uri: 'audio/music/overworld.mp3',
-    loop: true,
-    volume: 0.1,
-  }).play(world);
-});
+  }
+}

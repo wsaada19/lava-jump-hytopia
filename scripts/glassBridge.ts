@@ -1,5 +1,7 @@
 import { Player, PlayerEntity, World, type Vector3Like } from "hytopia"
 
+const GLASS_BLOCK_ID = 6
+
 const PLATFORM_WIDTH = 3;
 const GRID_ROWS = 2;
 const GRID_COLS = 10;
@@ -12,6 +14,8 @@ class GlassBridge {
     private faultyBlockId: number;
     private world: World;
     private spawnPosition: Vector3Like;
+    public isActive: boolean;
+    private interval: Timer | undefined;
     
     constructor(world: World, faultyBlockId: number, spawnPosition: Vector3Like) {
         this.world = world
@@ -21,17 +25,41 @@ class GlassBridge {
         this.spawnPosition = spawnPosition
         this.loadFaultyPlatforms()
         this.loadPlatforms()
+        this.isActive = false;
+        this.interval = undefined;
+    }
+
+    reset = (playerEntity: PlayerEntity) => {
+        const player = playerEntity.player
+        this.stop()
+        player.ui.sendData({ type: 'time-played', duration: this.playDuration })
+        player.ui.sendData({ type: 'player-deaths', deaths: 0 })
+        this.loadFaultyPlatforms();
+        this.loadPlatforms();
+        playerEntity.setPosition(this.spawnPosition)
+        this.play(player)
     }
 
     play = (player: Player) => {
-        setInterval(() => {
+        this.isActive = true;
+        this.interval = setInterval(() => {
             this.playDuration += 1
-            // send data to ui
             player.ui.sendData({ type: 'time-played', duration: this.playDuration })
         }, 1000)
     }
 
+    stop = () => {
+        this.isActive = false;
+        this.playDuration = 0;
+        this.playerDeaths = 0;
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = undefined;
+        }
+    }
+
     onPlayerFall = (player: PlayerEntity) => {
+        if(!this.isActive) return;
         this.playerDeaths += 1
         this.loadPlatforms()
         player.player.ui.sendData({ type: 'player-deaths', deaths: this.playerDeaths })
@@ -40,6 +68,7 @@ class GlassBridge {
 
     loadFaultyPlatforms = () => {
          // Generate one faulty platform per row
+         this.faultyPlatforms = [];
          for (let col = 0; col < GRID_COLS; col++) {
             const faultyRow = Math.floor(Math.random() * GRID_ROWS);
             this.faultyPlatforms.push({ row: faultyRow, col });
@@ -69,7 +98,7 @@ class GlassBridge {
                 const z = row * PLATFORM_WIDTH - 2;
     
                 // Create 2x2 platform with appropriate block type
-                this.createPlatform(x, y, z, isFaulty ? this.faultyBlockId : 6);
+                this.createPlatform(x, y, z, isFaulty ? this.faultyBlockId : GLASS_BLOCK_ID);
             }
         }
     }
