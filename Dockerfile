@@ -1,7 +1,5 @@
-# Use an official Node.js runtime as a parent image
 FROM oven/bun:latest
 
-# Set the working directory in the container
 WORKDIR /usr/src/app
 
 # Install cloudflared
@@ -17,10 +15,9 @@ COPY package.json bun.lockb* ./
 # Install dependencies
 RUN bun install
 
-# Copy the rest of the application code
+# Copy code
 COPY . .
 
-# Expose the port your app runs on
 EXPOSE 8080
 
 # Create a shell script to run the application and cloudflared
