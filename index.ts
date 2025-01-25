@@ -1,21 +1,21 @@
 import {
   startServer,
   Audio,
-  GameServer,
   PlayerEntity,
   Entity,
   PlayerUI,
   type EntityEventPayload,
   EntityEventType,
   BlockType,
-  Vector3,
   type Vector3Like,
   World,
   Player,
+  PlayerEntityController,
 } from 'hytopia';
 
 import worldMap from './assets/map.json';
 import GlassBridge from './scripts/glassBridge';
+import CustomPlayerEntityController from './scripts/CustomPlayerEntityController';
 
 export const PLAYER_VOID_FALL_EVENT = 'PLAYER_VOID_FALL_EVENT';
 export interface PlayerVoidFallEventPayload { player: PlayerEntity }
@@ -71,10 +71,10 @@ function onPlayerJoin(world: World, player: Player, glassBridge: GlassBridge) {
     modelUri: 'models/player.gltf',
     modelLoopedAnimations: ['idle'],
     modelScale: 0.5,
+    controller:  new CustomPlayerEntityController({}),
   });
 
   playerEntity.spawn(world, SPAWN);
-  glassBridge.play(playerEntity.player);
 
   // Send a nice welcome message that only the player who joined will see ;)
   world.chatManager.sendPlayerMessage(player, 'Welcome to the game!', '00FF00');
@@ -82,11 +82,12 @@ function onPlayerJoin(world: World, player: Player, glassBridge: GlassBridge) {
   world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
   world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');
   player.ui.load('ui/index.html')
-  player.input['sh'] = false;
+
+  glassBridge.addPlayer(playerEntity)
 
   player.ui.onData = (playerUI: PlayerUI, data: { button?: string }) => {
     if (data.button && data.button === 'spawn') {
-      playerEntity.setPosition(SPAWN)
+      glassBridge.play(playerEntity.player)
     }
     if (data.button && data.button === 'reset') {
       glassBridge.reset(playerEntity)
@@ -96,7 +97,8 @@ function onPlayerJoin(world: World, player: Player, glassBridge: GlassBridge) {
 
 function onPlayerLeave(world: World, player: Player, glassBridge: GlassBridge) {
   world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
-  glassBridge.stop()
+  // glassBridge.stop()
+  glassBridge.removePlayer(player.id)
 }
 
 function loadCustomBlocks(world: World, glassBridge: GlassBridge) {
@@ -174,7 +176,7 @@ function loadCustomBlocks(world: World, glassBridge: GlassBridge) {
   // Player wins when they collide with the victory block - TODO: make sure they land on the block
   victoryBlock.onEntityCollision = (type: BlockType, entity: Entity, started: boolean) => {
     if (started) {
-      if(entity instanceof PlayerEntity && glassBridge.isActive) {
+      if (entity instanceof PlayerEntity && glassBridge.isActive) {
         entity.player.ui.sendData({ type: 'victory' })
         entity.startModelLoopedAnimations(['sleep'])
         glassBridge.stop()

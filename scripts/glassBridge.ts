@@ -1,4 +1,6 @@
-import { Player, PlayerEntity, World, type Vector3Like } from "hytopia"
+import { Player, PlayerEntity, PlayerManager, World, type Vector3Like } from "hytopia"
+import CustomPlayerEntityController from "./CustomPlayerEntityController";
+import CantMoveEntityController from "./CantMoveEntityController";
 
 const GLASS_BLOCK_ID = 6
 
@@ -14,8 +16,11 @@ class GlassBridge {
     private faultyBlockId: number;
     private world: World;
     private spawnPosition: Vector3Like;
-    public isActive: boolean;
     private interval: Timer | undefined;
+    private players: PlayerEntity[] = [];
+    
+    public activePlayer: string = "";
+    public isActive: boolean;
     
     constructor(world: World, faultyBlockId: number, spawnPosition: Vector3Like) {
         this.world = world
@@ -27,6 +32,14 @@ class GlassBridge {
         this.loadPlatforms()
         this.isActive = false;
         this.interval = undefined;
+    }
+
+    addPlayer = (player: PlayerEntity) => {
+        this.players.push(player)
+    }
+
+    removePlayer = (id: string) => {
+        this.players = this.players.filter(p => p.player.id !== id)
     }
 
     reset = (playerEntity: PlayerEntity) => {
@@ -42,9 +55,14 @@ class GlassBridge {
 
     play = (player: Player) => {
         this.isActive = true;
+        // choose a random player to start
+        this.activePlayer = this.players[Math.floor(Math.random() * this.players.length)].player.id;
+        this.updateActivePlayer()
         this.interval = setInterval(() => {
             this.playDuration += 1
-            player.ui.sendData({ type: 'time-played', duration: this.playDuration })
+            for(const player of this.players) {
+                player.player.ui.sendData({ type: 'time-played', duration: this.playDuration })
+            }
         }, 1000)
     }
 
@@ -58,12 +76,40 @@ class GlassBridge {
         }
     }
 
+    updateActivePlayer = () => {
+        const index = this.players.findIndex(player => player.player.id === this.activePlayer)
+        if(index < this.players.length - 1) {
+            this.activePlayer = this.players[index + 1].player.id;
+        } else {
+            this.activePlayer = this.players[0].player.id;
+        }
+        
+        this.players.forEach(player => {
+            //player.player.ui.sendData({ type: 'active-player', player: this.activePlayer })
+            if(player.player.id === this.activePlayer) {
+                const controller = player.controller
+                if(controller instanceof CustomPlayerEntityController) {
+                    controller.enableMovement()
+                }
+            } else {
+                const controller = player.controller
+                if(controller instanceof CustomPlayerEntityController) {
+                    controller.disableMovement()
+                }
+            }
+        })
+    }
+
     onPlayerFall = (player: PlayerEntity) => {
+        player.setPosition(this.spawnPosition)
+
         if(!this.isActive) return;
         this.playerDeaths += 1
         this.loadPlatforms()
         player.player.ui.sendData({ type: 'player-deaths', deaths: this.playerDeaths })
-        player.setPosition(this.spawnPosition)
+
+        // get index based on player id
+        this.updateActivePlayer()
     }
 
     loadFaultyPlatforms = () => {
