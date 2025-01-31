@@ -60,6 +60,9 @@ class GlassBridge {
         // choose a random player to start
         this.activePlayer = this.players[Math.floor(Math.random() * this.players.length)].player.id;
         this.updateActivePlayer()
+        if(this.interval) {
+            clearInterval(this.interval)
+        }
         this.interval = setInterval(() => {
             this.playDuration += 1
             for(const player of this.players) {
@@ -94,7 +97,7 @@ class GlassBridge {
                     player.rawRigidBody.setEnabled(true)
                 }
             } else {
-                player.setPosition({ x: 0, y: 10, z: 0 })
+                player.setPosition({ x: 0, y: 20, z: 0 })
                 if(player.rawRigidBody) {
                     player.rawRigidBody.setEnabled(false)
                 }
