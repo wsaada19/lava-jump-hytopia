@@ -76,7 +76,7 @@ function onPlayerJoin(world: World, player: Player, glassBridge: GlassBridge) {
   playerEntity.spawn(world, SPAWN);
 
   // Send a nice welcome message that only the player who joined will see ;)
-  world.chatManager.sendPlayerMessage(player, 'Welcome to the game!', '00FF00');
+  world.chatManager.sendPlayerMessage(player, 'Welcome to the game!!', '00FF00');
   world.chatManager.sendPlayerMessage(player, 'Use WASD to move around.');
   world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
   world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');

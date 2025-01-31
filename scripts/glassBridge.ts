@@ -38,6 +38,10 @@ class GlassBridge {
 
     removePlayer = (id: string) => {
         this.players = this.players.filter(p => p.player.id !== id)
+
+        if(this.activePlayer === id) {
+            this.updateActivePlayer()
+        }
     }
 
     reset = (playerEntity: PlayerEntity) => {
