@@ -83,7 +83,7 @@ class GlassBridge {
         }
         
         this.players.forEach(player => {
-            //player.player.ui.sendData({ type: 'active-player', player: this.activePlayer })
+            player.player.ui.sendData({ type: 'active-player', player: this.activePlayer })
             if(player.player.id === this.activePlayer) {
                 player.setPosition(this.spawnPosition)
                 if(player.rawRigidBody) {
