@@ -10,7 +10,6 @@ import {
   type Vector3Like,
   World,
   Player,
-  PlayerEntityController,
 } from 'hytopia';
 
 import worldMap from './assets/map.json';

@@ -1,6 +1,4 @@
-import { Player, PlayerEntity, PlayerManager, World, type Vector3Like } from "hytopia"
-import CustomPlayerEntityController from "./CustomPlayerEntityController";
-import CantMoveEntityController from "./CantMoveEntityController";
+import { Player, PlayerEntity, World, type Vector3Like } from "hytopia"
 
 const GLASS_BLOCK_ID = 6
 
@@ -11,7 +9,7 @@ const START_HEIGHT = 10;
 
 class GlassBridge {
     private playDuration: number;
-    private playerDeaths: number;
+    private playerDeaths: Map<string, number>;
     private faultyPlatforms: { row: number, col: number }[] = [];
     private faultyBlockId: number;
     private world: World;
@@ -26,7 +24,7 @@ class GlassBridge {
         this.world = world
         this.faultyBlockId = faultyBlockId
         this.playDuration = 0
-        this.playerDeaths = 0
+        this.playerDeaths = new Map()
         this.spawnPosition = spawnPosition
         this.loadFaultyPlatforms()
         this.loadPlatforms()
@@ -69,7 +67,7 @@ class GlassBridge {
     stop = () => {
         this.isActive = false;
         this.playDuration = 0;
-        this.playerDeaths = 0;
+        this.playerDeaths = new Map()
         if (this.interval) {
             clearInterval(this.interval);
             this.interval = undefined;
@@ -87,14 +85,14 @@ class GlassBridge {
         this.players.forEach(player => {
             //player.player.ui.sendData({ type: 'active-player', player: this.activePlayer })
             if(player.player.id === this.activePlayer) {
-                const controller = player.controller
-                if(controller instanceof CustomPlayerEntityController) {
-                    controller.enableMovement()
+                player.setPosition(this.spawnPosition)
+                if(player.rawRigidBody) {
+                    player.rawRigidBody.setEnabled(true)
                 }
             } else {
-                const controller = player.controller
-                if(controller instanceof CustomPlayerEntityController) {
-                    controller.disableMovement()
+                player.setPosition({ x: 0, y: 10, z: 0 })
+                if(player.rawRigidBody) {
+                    player.rawRigidBody.setEnabled(false)
                 }
             }
         })
@@ -104,9 +102,9 @@ class GlassBridge {
         player.setPosition(this.spawnPosition)
 
         if(!this.isActive) return;
-        this.playerDeaths += 1
+        this.playerDeaths.set(player.player.id, (this.playerDeaths.get(player.player.id) || 0) + 1)
         this.loadPlatforms()
-        player.player.ui.sendData({ type: 'player-deaths', deaths: this.playerDeaths })
+        player.player.ui.sendData({ type: 'player-deaths', deaths: this.playerDeaths.get(player.player.id) || 0 })
 
         // get index based on player id
         this.updateActivePlayer()
